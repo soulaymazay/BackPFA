@@ -9,7 +9,7 @@ const authController = require('../controllers/auth.controller');
 // Route Register
 router.post('/register', async (req, res) => {
   try {
-    const { email, password, role } = req.body;
+    const { email, password, role, nom } = req.body;
 
     if (!['candidat', 'encadrant'].includes(role)) {
       return res.status(400).json({ message: 'Rôle invalide' });
@@ -25,7 +25,7 @@ router.post('/register', async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     // Créer le nouvel utilisateur
-    const newUser = new User({ email, password: hashedPassword, role });
+    const newUser = new User({ email, password: hashedPassword, role, nom });
 
     await newUser.save();
 

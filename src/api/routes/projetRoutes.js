@@ -4,6 +4,8 @@ const mongoose = require('mongoose');
 const Projet = require('../models/projet.model'); // si "models" est dans "src/api"
  // Assure-toi que ce chemin est correct
 const Notification = require('../models/notification.model');
+const User = require('../models/user.model');
+
 
 router.post('/projets', async (req, res) => {
   try {
@@ -106,18 +108,7 @@ router.patch('/projets/:id/statut', async (req, res) => {
     }
   });
 // Obtenir les projets proposés par un encadrant
-router.get('/projets/encadrant/:encadrantId', async (req, res) => {
-    try {
-      const candidatId = req.params.candidatId;
-      console.log('Recherche projets pour encadrantId :', encadrantId);
-  
-      const projets = await Projet.find({ encadrantId: new mongoose.Types.ObjectId(encadrantId) });
-      res.status(200).json(projets);
-    } catch (error) {
-      console.error('Erreur complète lors de la récupération des projets :', error);
-      res.status(500).json({ message: 'Erreur lors de la récupération des projets', error: error.message });
-    }
-  });
+
   // Modifier un projet existant
 router.put('/projets/:id', async (req, res) => {
     try {
@@ -160,10 +151,9 @@ router.delete('/projets/:id', async (req, res) => {
 // ✅ Route : Créer un projet par un encadrant 
 router.post('/projetsencad', async (req, res) => {
   try {
-    const { titre, description, type, encadrantId } = req.body;
+    const { titre, description, type, encadrantId, encadrantNom, sujets, statut } = req.body;
 
-    // Vérification simple
-    if (!titre || !description || !type || !encadrantId ) {
+    if (!titre || !description || !type || !encadrantId || !encadrantNom) {
       return res.status(400).json({ message: 'Champs manquants' });
     }
 
@@ -171,7 +161,10 @@ router.post('/projetsencad', async (req, res) => {
       titre,
       description,
       type,
-      encadrantId 
+      encadrantId,
+      encadrantNom, // ✅ ce champ doit être bien ajouté ici
+      sujets,
+      statut
     });
 
     const savedProjet = await nouveauProjet.save();
@@ -180,22 +173,45 @@ router.post('/projetsencad', async (req, res) => {
     res.status(500).json({ message: 'Erreur serveur', error: err.message });
   }
 });
-//home
-router.get('/projets/encadrant/:encadrantId/valides', async (req, res) => {
-  try {
-    const { encadrantId } = req.params;
 
-    const projets = await Projet.find({
-      encadrantId,
-      statut: "valide"
+//home
+router.get('/projets/encadrant/valides', async (req, res) => {
+  try {
+    const projets = await Projet.find({ statut: 'valide' }).populate('encadrantId');
+
+    const projetsAvecNom = projets.map(p => {
+      const projet = {
+        _id: p._id,
+        titre: p.titre,
+        description: p.description,
+        type: p.type,
+        statut: p.statut,
+        createdAt: p.createdAt
+      };
+
+      // Ajouter encadrantNom seulement si disponible
+      if (p.encadrantId && p.encadrantId.nom) {
+        projet.encadrantNom = p.encadrantId.nom;
+      }
+
+      return projet;
     });
 
-    res.status(200).json(projets);
+    res.status(200).json(projetsAvecNom);
   } catch (error) {
-    console.error("Erreur lors de la récupération des projets validés de l'encadrant :", error);
-    res.status(500).json({ message: "Erreur lors de la récupération des projets", error });
+    console.error("Erreur lors de la récupération des projets :", error);
+    res.status(500).json({
+      message: "Erreur lors de la récupération des projets",
+      error: error.message
+    });
   }
 });
+
+
+
+
+
+
 //choisir
 // PUT /api/projets/:projetId/choisir
 // Choisir un projet par le candidat

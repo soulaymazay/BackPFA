@@ -4,6 +4,7 @@ const userSchema = new mongoose.Schema({
   email: { type: String, required: true, unique: true },
   password: { type: String, required: true },
   role: { type: String, enum: ['candidat', 'encadrant'], required: true },
+   nom: { type: String ,required: true, unique: true} 
   // Tu peux ajouter d'autres champs spécifiques selon le rôle si besoin
 });
 const loginSchema = new mongoose.Schema({
