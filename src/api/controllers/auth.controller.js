@@ -1,5 +1,7 @@
 const bcrypt = require('bcryptjs');
-const User = require('../models/user.model');
+
+const { User } = require('../models/user.model');
+
 
 // Fonction d'enregistrement
 exports.register = async (req, res) => {
@@ -28,27 +30,27 @@ exports.register = async (req, res) => {
         res.status(500).send({ message: 'Erreur serveur' });
     }
 };
-
-// Fonction de connexion
 exports.login = async (req, res) => {
-    try {
-        const { email, password } = req.body;
+  try {
+    const { email, password } = req.body;
 
-        // Vérifie si l'utilisateur existe
-        const user = await User.findOne({ email });
-        if (!user) {
-            return res.status(400).send({ message: 'Utilisateur non trouvé' });
-        }
-
-        // Compare les mots de passe
-        const isMatch = await bcrypt.compare(password, user.password);
-        if (!isMatch) {
-            return res.status(400).send({ message: 'Mot de passe incorrect' });
-        }
-
-        res.status(200).send({ message: 'Connexion réussie', user });
-    } catch (error) {
-        console.error(error);
-        res.status(500).send({ message: 'Erreur serveur' });
+    // Vérifie si l'utilisateur existe
+    const user = await User.findOne({ email }).populate('profil'); // 👈 Ajout important ici
+    if (!user) {
+      return res.status(400).send({ message: 'Utilisateur non trouvé' });
     }
+
+    // Compare les mots de passe
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return res.status(400).send({ message: 'Mot de passe incorrect' });
+    }
+
+    res.status(200).send({ message: 'Connexion réussie', user }); // 👈 Maintenant, user.profil est rempli
+  } catch (error) {
+    console.error(error);
+    res.status(500).send({ message: 'Erreur serveur' });
+  }
 };
+
+
