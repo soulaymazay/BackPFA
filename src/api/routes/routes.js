@@ -1,7 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcrypt');
-const User = require('../models/user.model');
+const { User } = require('../models/user.model');
+
 const authController = require('../controllers/auth.controller');
 // par exemple
 
@@ -36,6 +37,7 @@ router.post('/register', async (req, res) => {
     res.status(500).json({ message: 'Erreur serveur' });
   }
 });
+
  // ou autre nom de fichier
 
 router.post('/login', authController.login);
