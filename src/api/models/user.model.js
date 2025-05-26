@@ -13,8 +13,8 @@ const loginSchema = new mongoose.Schema({
   password: { type: String, required: true }
 });
 
-// ⚠️ Attention : il faut exporter correctement les deux modèles
+// ⚠ Attention : il faut exporter correctement les deux modèles
 const Login = mongoose.model('Login', loginSchema);
 const User = mongoose.model('User', userSchema);
 
-module.exports = { Login, User };
+module.exports = { Login, User };

@@ -11,9 +11,11 @@ const ProfilSchema = new mongoose.Schema({
     formation: { type: String },
     domaine: { type: String },
     email: { type: String, required: true, unique: true },
-    image: { type: String, default: 'default-profile.png' }
+    image: { type: String, default: 'default-profile.png' },
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, // 
+
 }, {
     timestamps: true
 });
 
-module.exports = mongoose.model('Profil', ProfilSchema);
+module.exports = mongoose.model('Profil', ProfilSchema);
