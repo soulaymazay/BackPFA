@@ -2,72 +2,19 @@ const bcrypt = require('bcrypt');
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
-const { Server } = require('socket.io');
-const http = require('http');
-const server = http.createServer(app);
-const io = new Server(server, {
-  cors: {
-    origin: 'http://localhost:65220', // Angular
-    methods: ['GET', 'POST']
-  }
-});
-
+const multer = require('multer');
+const path = require('path');
+require('dotenv').config();
 
 const app = express();
-app.use(express.json());
-app.use(cors());
-
-// Stocker les sockets des encadrants connectés
-const connectedEncadrants = new Map();
-
-io.on('connection', (socket) => {
-  console.log('Nouvelle connexion Socket.io');
-
-  socket.on('registerEncadrant', (encadrantId) => {
-    connectedEncadrants.set(encadrantId, socket.id);
-    console.log(`Encadrant ${encadrantId} connecté`);
-  });
-
-  socket.on('disconnect', () => {
-    for (const [key, value] of connectedEncadrants.entries()) {
-      if (value === socket.id) {
-        connectedEncadrants.delete(key);
-        console.log(`Encadrant ${key} déconnecté`);
-      }
-    }
-  });
-});
-// Exemple route POST où tu veux notifier :
-const multer = require('multer');
 const upload = multer();
 
-app.post('/api/proposer', upload.single('cv'), (req, res) => {
-  const data = req.body;
+// ✅ Middleware à mettre en tout premier
+app.use(express.json({ limit: '20mb' }));
+app.use(express.urlencoded({ extended: true, limit: '20mb' }));
 
-  const encadrantId = data.encadrantId;
-  const socketId = connectedEncadrants.get(encadrantId);
-
-  if (socketId) {
-    io.to(socketId).emit('notificationSujet', {
-      nom: data.nom || 'Candidat inconnu',
-      prenom: data.prenom || '',
-      sujet: {
-        titre: data.titre,
-        description: data.description,
-        technologie: data.technologie,
-        entreprise: data.entreprise,
-        emailEntreprise: data.emailEntreprise,
-      }
-    });
-  }
-
-  // Enregistrer dans la base ou autre logique...
-  res.status(200).json({ message: 'Sujet proposé et notification envoyée' });
-});
-// Middlewares globaux
 app.use(cors());
-app.use(express.json());
-app.use('/uploads', express.static('uploads')); // Pour servir les fichiers statiques (ex: cv uploadés)
+app.use('/uploads', express.static('uploads')); // Pour servir les fichiers statiques
 
 // 📦 IMPORTER LES ROUTES
 const userRoutes = require('./src/api/routes/routes');
@@ -76,13 +23,11 @@ app.use('/api', userRoutes);
 const projetRoutes = require('./src/api/routes/projetRoutes');
 app.use('/api', projetRoutes);
 
-const notificationRoutes = require('./src/api/routes/notification');
-app.use('/api', notificationRoutes);
+const candidatureRoutes = require('./src/api/routes/candidature');
+app.use('/api', candidatureRoutes);
 
-
-// ✅ AJOUT DE PROFIL ROUTES (CE QUI MANQUAIT)
 const profilRoutes = require('./src/api/routes/profil');
-app.use('/api', profilRoutes); // ✅ rend /api/profils accessible
+app.use('/api', profilRoutes);
 
 // 🌐 CONNEXION A MONGODB
 mongoose.connect('mongodb://localhost:27017/stages', {
@@ -91,6 +36,17 @@ mongoose.connect('mongodb://localhost:27017/stages', {
 })
 .then(() => console.log('MongoDB Connected'))
 .catch((error) => console.error('MongoDB connection error:', error));
+
+// ✅ Exemple route test
+app.post('/api/proposer', upload.single('cv'), (req, res) => {
+  const data = req.body;
+  res.status(200).json({ message: 'Sujet proposé avec succès (sans notification)' });
+});
+const encadrantRoutes = require('./src/api/routes/encadrant');
+
+// Monte les routes sous /api
+app.use('/api', encadrantRoutes);
+
 
 // 🚀 DEMARRER SERVEUR
 const PORT = 3001;

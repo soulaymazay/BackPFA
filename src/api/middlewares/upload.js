@@ -3,7 +3,14 @@ const path = require('path');
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, 'uploads/cv');  // chemin vers dossier uploads/cv
+    // Vérifie le champ de formulaire
+    if (file.fieldname === 'cv') {
+      cb(null, 'uploads/cv');
+    } else if (file.fieldname === 'image') {
+      cb(null, 'uploads/images');
+    } else {
+      cb(null, 'uploads/others');
+    }
   },
   filename: (req, file, cb) => {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);

@@ -5,14 +5,15 @@ const projetSchema = new mongoose.Schema({
   description: { type: String, required: true },
   type: { type: String, enum: ['PFA', 'PFE', 'Stage'], required: true },
   encadrantId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-  encadrantNom: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+ encadrantNom: { type: String }, // ✅ ici le fix
   candidatId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   sujets: [{ type: String }],
   statut: {
-    type: String,
-    enum: ['en_attente', 'valide', 'refuse'],
-    default: 'en_attente'
-  }
+  type: String,
+  enum: ['en_attente', 'valide', 'refuse', 'disponible'],  // si "disponible" est voulu
+  default: 'en_attente'
+}
+
 }, { timestamps: true });
 
 

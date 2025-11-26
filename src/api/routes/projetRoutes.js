@@ -1,12 +1,10 @@
 const express = require('express');
 const router = express.Router();
-const mongoose = require('mongoose');
-const Projet = require('../models/projet.model'); // si "models" est dans "src/api"
- // Assure-toi que ce chemin est correct
-const Notification = require('../models/notification.model');
+const Projet = require('../models/projet.model');
 const User = require('../models/user.model');
+const authenticateToken = require('../middlewares/auth'); // chemin à adapter
 
-
+// ✅ Créer un projet par un candidat
 router.post('/projets', async (req, res) => {
   try {
     const { titre, description, type, candidatId, encadrantId, sujets } = req.body;
@@ -15,7 +13,6 @@ router.post('/projets', async (req, res) => {
       return res.status(400).json({ message: 'candidatId et encadrantId sont requis.' });
     }
 
-    // 📌 Création du projet
     const nouveauProjet = new Projet({
       titre,
       description,
@@ -28,14 +25,11 @@ router.post('/projets', async (req, res) => {
 
     await nouveauProjet.save();
 
-    // 🔔 Notification vers l'encadrant
-    const notification = new Notification({
+    await Notification.create({
       message: `Le candidat a proposé un nouveau projet : ${titre}`,
       projetId: nouveauProjet._id,
       utilisateurId: encadrantId
     });
-
-    await notification.save();
 
     res.status(201).json({
       message: 'Projet proposé avec succès, notification envoyée à l’encadrant.',
@@ -48,123 +42,26 @@ router.post('/projets', async (req, res) => {
   }
 });
 
- // PATCH : mise à jour du statut par l'admin
-router.patch('/projets/:id/statut', async (req, res) => {
-    try {
-      const { statut } = req.body;
-      const { id } = req.params;
-  
-      // Vérifier que le statut demandé est valide
-      if (!['valide', 'refuse'].includes(statut)) {
-        return res.status(400).json({ message: 'Statut invalide. Utilisez "valide" ou "refuse".' });
-      }
-  
-      const projet = await Projet.findByIdAndUpdate(
-        id,
-        { statut },
-        { new: true } // renvoie le document mis à jour
-      );
-  
-      if (!projet) {
-        return res.status(404).json({ message: 'Projet non trouvé.' });
-      }
-  
-      res.status(200).json({ message: `Projet ${statut} avec succès.`, projet });
-    } catch (error) {
-      console.error('Erreur lors de la mise à jour du statut :', error);
-      res.status(500).json({ message: 'Erreur serveur', error });
-    }
-  });
-  router.put('/projets/:id/statut', async (req, res) => {
-    try {
-      const projetId = req.params.id;
-      const { statut } = req.body; // doit être "validé" ou "refusé"
-  
-      if (!["valide", "refuse"].includes(statut)) {
-        return res.status(400).json({ message: "Statut invalide. Utilisez 'valide' ou 'refuse'." });
-      }
-  
-      const projet = await Projet.findById(projetId);
-      if (!projet) {
-        return res.status(404).json({ message: "Projet introuvable." });
-      }
-  
-      projet.statut = statut;
-      await projet.save();
-  
-      // 🔔 Notification au candidat
-      const notification = new Notification({
-        message: `Votre projet "${projet.titre}" a été ${statut} par l'encadrant.`,
-        projetId: projet._id,
-        utilisateurId: projet.candidatId
-      });
-  
-      await notification.save();
-  
-      res.status(200).json({ message: `Projet ${statut} avec succès.`, projet });
-    } catch (error) {
-      console.error('Erreur lors de la validation/refus du projet :', error);
-      res.status(500).json({ message: 'Erreur serveur', error });
-    }
-  });
-// Obtenir les projets proposés par un encadrant
-
-  // Modifier un projet existant
-router.put('/projets/:id', async (req, res) => {
-    try {
-      const projetId = req.params.id;
-      const misesAJour = req.body;
-  
-      const projetModifie = await Projet.findByIdAndUpdate(projetId, misesAJour, { new: true });
-  
-      if (!projetModifie) {
-        return res.status(404).json({ message: 'Projet non trouvé' });
-      }
-  
-      res.status(200).json({ message: 'Projet modifié avec succès', projet: projetModifie });
-    } catch (error) {
-      console.error('Erreur lors de la modification du projet :', error);
-      res.status(500).json({ message: 'Erreur lors de la modification du projet', error });
-    }
-  });
-
-  // Supprimer un projet
-router.delete('/projets/:id', async (req, res) => {
-    try {
-      const projetId = req.params.id;
-  
-      const projetSupprime = await Projet.findByIdAndDelete(projetId);
-  
-      if (!projetSupprime) {
-        return res.status(404).json({ message: 'Projet non trouvé' });
-      }
-  
-      res.status(200).json({ message: 'Projet supprimé avec succès' });
-    } catch (error) {
-      console.error('Erreur lors de la suppression du projet :', error);
-      res.status(500).json({ message: 'Erreur lors de la suppression du projet', error });
-    }
-  });
-  
-  
-    
-// ✅ Route : Créer un projet par un encadrant 
-router.post('/projetsencad', async (req, res) => {
+// ✅ Créer un projet par un encadrant
+router.post('/projetsencad', authenticateToken, async (req, res) => {
   try {
-    const { titre, description, type, encadrantId, encadrantNom, sujets, statut } = req.body;
+    const { titre, description, type, technologie, statut } = req.body;
 
-    if (!titre || !description || !type || !encadrantId || !encadrantNom) {
-      return res.status(400).json({ message: 'Champs manquants' });
+    const encadrantId = req.user.id;
+    const encadrantNom = req.user.nom;
+
+    if (!titre || !description || !type) {
+      return res.status(400).json({ message: 'Les champs titre, description et type sont obligatoires.' });
     }
 
     const nouveauProjet = new Projet({
       titre,
       description,
       type,
+      technologie: technologie || '', // valeur par défaut si absente
       encadrantId,
-      encadrantNom, // ✅ ce champ doit être bien ajouté ici
-      sujets,
-      statut
+      encadrantNom,
+      statut: statut || 'disponible'
     });
 
     const savedProjet = await nouveauProjet.save();
@@ -174,7 +71,103 @@ router.post('/projetsencad', async (req, res) => {
   }
 });
 
-//home
+
+
+// ✅ Modifier un projet
+router.put('/projets/:id', async (req, res) => {
+  try {
+    const projetId = req.params.id;
+    const misesAJour = req.body;
+
+    const projetModifie = await Projet.findByIdAndUpdate(projetId, misesAJour, { new: true });
+
+    if (!projetModifie) {
+      return res.status(404).json({ message: 'Projet non trouvé' });
+    }
+
+    res.status(200).json({ message: 'Projet modifié avec succès', projet: projetModifie });
+  } catch (error) {
+    console.error('Erreur lors de la modification du projet :', error);
+    res.status(500).json({ message: 'Erreur lors de la modification du projet', error });
+  }
+});
+
+// ✅ Supprimer un projet
+router.delete('/projets/:id', async (req, res) => {
+  try {
+    const projetId = req.params.id;
+
+    const projetSupprime = await Projet.findByIdAndDelete(projetId);
+
+    if (!projetSupprime) {
+      return res.status(404).json({ message: 'Projet non trouvé' });
+    }
+
+    res.status(200).json({ message: 'Projet supprimé avec succès' });
+  } catch (error) {
+    console.error('Erreur lors de la suppression du projet :', error);
+    res.status(500).json({ message: 'Erreur lors de la suppression du projet', error });
+  }
+});
+
+// ✅ Choisir un projet (par candidat)
+router.post('/projets/:id/choisir', async (req, res) => {
+  try {
+    const { candidatId } = req.body;
+    const projet = await Projet.findById(req.params.id);
+
+    if (!projet) {
+      return res.status(404).json({ message: 'Projet non trouvé' });
+    }
+
+    projet.candidatId = candidatId;
+    projet.statut = 'en_attente';
+    await projet.save();
+
+    await Notification.create({
+      utilisateurId: projet.encadrantId,
+      message: `Un candidat a choisi le projet : ${projet.titre}`,
+      projetId: projet._id
+    });
+
+    res.status(200).json({ message: 'Projet choisi avec succès', projet });
+  } catch (error) {
+    console.error('Erreur lors du choix du projet :', error);
+    res.status(500).json({ message: 'Erreur lors du choix du projet', error });
+  }
+});
+
+// ✅ Valider ou refuser un projet (encadrant)
+router.put('/projets/:id/statut', async (req, res) => {
+  try {
+    const { statut } = req.body;
+
+    if (!['valide', 'refuse'].includes(statut)) {
+      return res.status(400).json({ message: 'Statut invalide. Utilisez "valide" ou "refuse".' });
+    }
+
+    const projet = await Projet.findById(req.params.id);
+    if (!projet) return res.status(404).json({ message: 'Projet non trouvé' });
+
+    projet.statut = statut;
+    await projet.save();
+
+    if (projet.candidatId) {
+      await Notification.create({
+        utilisateurId: projet.candidatId,
+        message: `Votre projet "${projet.titre}" a été ${statut === 'valide' ? 'validé' : 'refusé'} par l’encadrant.`,
+        projetId: projet._id
+      });
+    }
+
+    res.status(200).json({ message: `Projet ${statut} avec succès.`, projet });
+  } catch (error) {
+    console.error('Erreur lors de la validation/refus du projet :', error);
+    res.status(500).json({ message: 'Erreur serveur', error });
+  }
+});
+
+// ✅ Voir les projets valides (page d’accueil)
 router.get('/projets/encadrant/valides', async (req, res) => {
   try {
     const projets = await Projet.find({ statut: 'valide' }).populate('encadrantId');
@@ -184,16 +177,14 @@ router.get('/projets/encadrant/valides', async (req, res) => {
         _id: p._id,
         titre: p.titre,
         description: p.description,
+        technologie:p.technologie,
         type: p.type,
         statut: p.statut,
         createdAt: p.createdAt
       };
-
-      // Ajouter encadrantNom seulement si disponible
       if (p.encadrantId && p.encadrantId.nom) {
         projet.encadrantNom = p.encadrantId.nom;
       }
-
       return projet;
     });
 
@@ -207,71 +198,15 @@ router.get('/projets/encadrant/valides', async (req, res) => {
   }
 });
 
-
-
-
-
-
-//choisir
-// PUT /api/projets/:projetId/choisir
-// Choisir un projet par le candidat
-router.post('/projets/:id/choisir', async (req, res) => {
+// ✅ Voir tous les projets d’un encadrant
+router.get('/projets/encadrant/:encadrantId', async (req, res) => {
   try {
-    const { candidatId } = req.body;
-    const projet = await Projet.findById(req.params.id);
-
-    if (!projet) {
-      return res.status(404).json({ message: 'Projet non trouvé' });
-    }
-
-    projet.candidatId = candidatId;
-    projet.statut = 'en_attente'; // ✅ valeur autorisée par le schéma
-    await projet.save();
-
-    // Créer une notification pour l’encadrant
-    await Notification.create({
-      destinataireId: projet.encadrantId,
-      message: `Un candidat a choisi le projet : ${projet.titre}`
-    });
-
-    res.status(200).json({ message: 'Projet choisi avec succès', projet });
+    const { encadrantId } = req.params;
+    const projets = await Projet.find({ encadrantId });
+    res.status(200).json(projets);
   } catch (error) {
-    console.error('Erreur lors du choix du projet :', error);
-    res.status(500).json({ message: 'Erreur lors du choix du projet', error });
-  }
-});
-
-
-//valider le projet
-// PUT /api/projets/:projetId/statut
-// Exemple : PUT /api/projets/:id/statut
-router.put('/projets/:id/statut', async (req, res) => {
-  try {
-    const { statut } = req.body;
-    const projet = await Projet.findById(req.params.id);
-
-    if (!projet) return res.status(404).json({ message: 'Projet non trouvé' });
-
-    projet.statut = statut;
-    await projet.save();
-
-    // Notification au candidat
-    if (projet.candidatId) {
-      await Notification.create({
-        destinataireId: projet.candidatId,
-        message: `Votre projet "${projet.titre}" a été ${statut === 'valide' ? 'validé' : 'refusé'} par l’encadrant.`
-      });
-    }
-
-    res.status(200).json({ message: 'Statut mis à jour avec succès', projet });
-  } catch (error) {
-    console.error('Erreur lors de la validation/refus du projet :', error);
     res.status(500).json({ message: 'Erreur serveur', error });
   }
 });
-
-
-
-
 
 module.exports = router;

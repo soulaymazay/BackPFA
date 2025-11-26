@@ -12,6 +12,7 @@ const ProfilSchema = new mongoose.Schema({
     domaine: { type: String },
     email: { type: String, required: true, unique: true },
     image: { type: String, default: 'default-profile.png' },
+      role: { type: String, default: 'candidat' }, // ✅ Ajouté ici
     userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, // 
 
 }, {
